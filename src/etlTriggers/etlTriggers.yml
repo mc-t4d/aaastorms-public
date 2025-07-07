@@ -6,6 +6,7 @@ etlTriggers:
   memorySize: 725
   environment: 
     DEV_PROFILE: None
-  image:
-    name: etlTriggersImg
-  runtime: python3.8
+  handler: etlTriggers_main.handler
+  runtime: python3.9
+  layers:
+    - !Ref DependenciesLambdaLayer

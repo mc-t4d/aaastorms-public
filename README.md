@@ -63,17 +63,25 @@ State Machine Definitions:
 2. [6H Loop](stepfunction_6H.json)
 
 #### Functions
-The AAAStorms application uses AWS Lambdas to run each stage of the ETL process.
+The AAAStorms application uses AWS Lambda functions to run each stage of the ETL process. The functions share common dependencies through a Lambda layer that includes geopandas and other required libraries.
 
 Functions:
 1. [etl](https://github.com/mercycorps/t4ds-aaastorms/tree/main/src/etl) - calls the NOAA RSS GIS feed and parses the information; saves the raw information to the aaastorms-stormdata bucket
 2. [etlTriggers](https://github.com/mercycorps/t4ds-aaastorms/tree/main/src/etlTriggers) - retrieves the storm data and creates a trigger dataset based on the available information; saves the trigger dataset to aaastorms-stormtriggers
 3. [report](https://github.com/mercycorps/t4ds-aaastorms/tree/main/src/report) - retrieves the storm triggers and builds an HTML report using a Python jinja template; the report function uses Amazon SES to send a formatted report to each email in the [config.py](https://github.com/mercycorps/t4ds-aaastorms/blob/main/src/report/config.py) file. The reports are saved to aaastorms-stormreports
 
+#### Lambda Layers
+The application uses a shared Lambda layer that includes the following key dependencies:
+- geopandas - for geospatial data processing
+- pandas - for data manipulation
+- jinja2 - for HTML report templating
+- requests - for HTTP requests
+- other common Python libraries
+
 ### Deployment
 The AAAStorms application is deployed using the serverless framework.
 [You can learn how to use this open-source CLI tool in conjunction with AWS here](https://www.serverless.com/framework/docs/getting-started).
-The AAAStorms ETL and report are a single service. Each function is containerized using Docker and uses a function-level .yml file to support Lambda configuration.
+The application uses native Lambda functions with a shared Lambda layer for dependencies. Each function uses a function-level .yml file to support Lambda configuration.
 
 ### Troubleshooting
 What do I do if...
@@ -88,7 +96,8 @@ What do I do if...
 
 ### AWS Resource Utilization Estimates
 
-- AWS Lambda: $0.00 / month (free tier)
+- AWS Lambda Functions: $0.00 / month (free tier)
+- AWS Lambda Layer Storage: $0.00 / month (included in free tier)
 - AWS Step Functions: $0.00 / month (free tier)
 - AWS S3: $0.00 (free tier for 12 months, thereafter priced at $0.023 per GB)
 - AWS S3 Static Web Hosting (for documentation page): $0.00 / month

@@ -4,7 +4,7 @@ report:
   description: "This function reads storm data and sends a report"
   timeout: 300
   memorySize: 725
-  image:
-    name: reportImg
-  runtime: python3.8
-   
+  handler: report_main.handler
+  runtime: python3.9
+  layers:
+    - !Ref DependenciesLambdaLayer

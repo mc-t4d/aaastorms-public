@@ -8,22 +8,19 @@ provider:
   name: aws
   stage: ${opt:stage, 'dev'}
   region: us-east-1
-  environment: 
-    BUILDX_NO_DEFAULT_ATTESTATIONS: 16
-  ecr:
-    images:
-      etlImg:
-        path: ./src/etl
-        platform: linux/amd64
-        provenance: false
-      etlTriggersImg:
-        path: ./src/etlTriggers
-        platform: linux/amd64
-        provenance: false
-      reportImg:
-        path: ./src/report
-        platform: linux/amd64
-        provenance: false
+  runtime: python3.9
+
+layers:
+  dependencies:
+    path: ./
+    name: aaastorms-dependencies
+    description: Common dependencies for AAAStorms functions including geopandas
+    compatibleRuntimes:
+      - python3.9
+    package:
+      patterns:
+        - requirements.txt
+        - '!**'
 
   iam:
     role:
@@ -52,4 +49,3 @@ functions:
   - ${file(./src/etl/etl.yml)}
   - ${file(./src/etlTriggers/etlTriggers.yml)}
   - ${file(./src/report/report.yml)}
-
