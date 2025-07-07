@@ -1,0 +1,11 @@
+# etlTriggers.yml
+
+etlTriggers:
+  description: "This function uses storm data to generate action triggers"
+  timeout: 300
+  memorySize: 725
+  environment: 
+    DEV_PROFILE: None
+  image:
+    name: etlTriggersImg
+  runtime: python3.8

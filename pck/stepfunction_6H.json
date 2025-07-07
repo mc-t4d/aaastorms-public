@@ -1,0 +1,125 @@
+{
+    "Comment": "This state machine collects triggers every 6H",
+    "StartAt": "InvokeStormSearch",
+    "States": {
+      "InvokeStormSearch": {
+        "Type": "Task",
+        "Resource": "arn:aws:states:::lambda:invoke",
+        "Parameters": {
+          "FunctionName": "arn:aws:lambda:us-east-1:581736746758:function:aaastormsETL-dev-etl:$LATEST",
+          "Payload.$": "$"
+        },
+        "Retry": [
+          {
+            "ErrorEquals": [
+              "Lambda.ServiceException",
+              "Lambda.AWSLambdaException",
+              "Lambda.SdkClientException",
+              "Lambda.TooManyRequestsException"
+            ],
+            "IntervalSeconds": 2,
+            "MaxAttempts": 6,
+            "BackoffRate": 2
+          }
+        ],
+        "Next": "ChooseIfStorms",
+        "OutputPath": "$.Payload"
+      },
+      "ChooseIfStorms": {
+        "Type": "Choice",
+        "Choices": [
+          {
+            "Variable": "$",
+            "IsNull": true,
+            "Next": "SuccessNoStorms"
+          }
+        ],
+        "Default": "Map",
+        "Comment": "Choose a path if there are storms returned by the storm search."
+      },
+      "SuccessNoStorms": {
+        "Type": "Succeed",
+        "Comment": "Storm search ran correctly but no storms were detected"
+      },
+      "Map": {
+        "Type": "Map",
+        "ItemProcessor": {
+          "ProcessorConfig": {
+            "Mode": "INLINE"
+          },
+          "StartAt": "InvokeTriggerAnalysis",
+          "States": {
+            "InvokeTriggerAnalysis": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "Payload.$": "$",
+                "FunctionName": "arn:aws:lambda:us-east-1:581736746758:function:aaastormsETL-dev-etlTriggers:$LATEST"
+              },
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "Lambda.ServiceException",
+                    "Lambda.AWSLambdaException",
+                    "Lambda.SdkClientException",
+                    "Lambda.TooManyRequestsException"
+                  ],
+                  "IntervalSeconds": 2,
+                  "MaxAttempts": 6,
+                  "BackoffRate": 2
+                }
+              ],
+              "Next": "ReportChoice",
+              "OutputPath": "$.Payload"
+            },
+            "ReportChoice": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Variable": "$.stormData.trigger_type",
+                  "StringEquals": "trigger",
+                  "Next": "InvokeReports"
+                },
+                {
+                  "Not": {
+                    "Variable": "$.stormData.trigger_type",
+                    "StringEquals": "trigger"
+                  },
+                  "Next": "SuccessPreTriggers"
+                }
+              ]
+            },
+            "InvokeReports": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "OutputPath": "$.Payload",
+              "Parameters": {
+                "Payload.$": "$",
+                "FunctionName": "arn:aws:lambda:us-east-1:581736746758:function:aaastormsETL-dev-report:$LATEST"
+              },
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "Lambda.ServiceException",
+                    "Lambda.AWSLambdaException",
+                    "Lambda.SdkClientException",
+                    "Lambda.TooManyRequestsException"
+                  ],
+                  "IntervalSeconds": 2,
+                  "MaxAttempts": 6,
+                  "BackoffRate": 2
+                }
+              ],
+              "End": true
+            },
+            "SuccessPreTriggers": {
+              "Type": "Succeed",
+              "Comment": "AAAStorms skips pretrigger report sends in 6H loop."
+            }
+          }
+        },
+        "End": true
+      }
+    },
+    "TimeoutSeconds": 600
+  }

@@ -1,0 +1,33 @@
+Introduction
+This Statement of Work (SOW) outlines the scope of work, possible deliverables, and skills/experience needed for a Python developer to work on the AAAStorms codebase 
+implemented with AWS Lambda, Step Functions, and EventBridge. The codebase is deployed using the Serverless framework 
+and hosted on GitHub. 
+
+Objectives
+The objectives of this scope will vary based on current needs of the team/project. 
+Some example objectives are as follows:
+- Improve and optimize the existing codebase implemented in Python; add data sources or enhance the reporting functions.
+- Enhance the functionality of AWS Lambda functions, Step Functions, and EventBridge.
+- Ensure proper integration and communication between various AWS services.
+- Implement best practices for security, scalability, and performance.
+- Maintain the codebase on GitHub and ensure proper version control.
+
+Deliverables
+The following deliverables should be included in any SOW to ensure documented, sustainable codebase for future development:
+- Updated and enhanced codebase implemented in Python.
+- Optimized AWS Lambda functions, Step Functions, and EventBridge configurations.
+- Unit tests for the implemented code.
+- Documentation of changes made, including code documentation and architecture diagrams.
+- Regular progress updates and communication with the project team.
+- Timely resolution of any issues or bugs encountered during development.
+
+Skills/Experience
+The following skills and experience are recommended for a developer working on future development. 
+- Proficiency in Python programming language, including knowledge of its core libraries and frameworks.
+- Experience in developing scalable and maintainable Python applications.
+- Understanding of Python best practices, code optimization, and performance tuning.
+- Familiarity with Python testing frameworks and writing unit tests.
+- In-depth knowledge and hands-on experience with various AWS services, including Lambda, Step Functions, SES, and EventBridge.
+- Ability to design, develop, and deploy serverless applications using AWS Lambda and the Serverless framework.
+- Familiarity with Git and GitHub for version control and collaborative development.
+- General knowledge of the data sources, NOAA/National Hurricane Center, WFP ADAM Live Map, and GDACS is a strong asset. 

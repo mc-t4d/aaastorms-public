@@ -1,0 +1,72 @@
+<html>
+    <p>
+        <h3 style=text-align:center>Mercy Corps Anticipatory Action for the Americas</h3>
+        <h3 style=text-align:center>TROPICAL CYCLONE ACTION TRIGGER ALERT FOR {{basin}} BASIN</h3>
+    </p>
+        <body>
+    <p>
+        <b>TRIGGER TYPE:</b> {{ttype}} <br>
+        <b>TRIGGER REASON:</b> {{reason}} <br>
+        </p>
+        <p>
+            <div style="padding-left: 10%; text-indent: -3em;">
+            <b>GEOGRAPHY</b><br>
+            <b>COUNTRIES WITH CURRENT WATCHES:</b> {{watches_noaa}}<br>
+            <b>COUNTRIES WITH CURRENT WARNINGS:</b> {{warnings_noaa}}<br>
+            <b>ALL COUNTRIES:</b> {{countries_adam}}<br>
+            <b>SUBNATIONAL IMPACTS REPORT:</b> <a href={{subnational_impacts_adam}}>{{pop_text}}</a><br>
+            </p>
+        <p>
+            <b>STORM CHARACTERISTICS</b><br>
+            <b>STORM NAME:</b> {{name}}<br>
+            <b>NOAA ID:</b> {{id_noaa}}<br>
+            <b>BASIN:</b> {{basin}}<br>
+            <b>CURRENT CLASSIFICATION:</b> {{classification_noaa}}<br>
+            <b>OVERALL MAXIMUM CATEGORY:</b> Not available. <br>
+            <b>CURRENT WINDSPEED:</b> {{current_windspeed_noaa}}<br>
+            <b>ESTIMATED WINDSPEED AT LANDFALL:</b> Not available. <br>
+            <b>MAXIMUM SUSTAINED WINDS:</b> {{max_sustainedwinds_noaa}}<br>
+            <b>MAXIMUM STORM SURGE:</b> {{max_stormsurge_adam}} <br>
+            </p>
+        <p>
+            <b>TIMELINE</b><br>
+            <b>ESTIMATED TIME OF LANDFALL:</b> Not available.<br>
+            </p>
+        <p>
+            <b>POTENTIAL IMPACT</b><br>
+            <b>WIND FORECASTS:</b><br>      
+            <table>
+                <thead>
+                    <tr>
+                        <b>
+                        VALIDTIME NE&nbsp;&nbsp;NW&nbsp;&nbsp;SE&nbsp;&nbsp;SW
+                        </b>
+                    </tr>
+                </thead>
+                {% for item in windforecast_noaa %}
+                <TR>
+                    <TD class="c1">{{item.VALIDTIME}}</TD>
+                    <TD class="c2">{{item.NE}}</TD>
+                    <TD class="c3">{{item.NW}}</TD>
+                    <TD class="c3">{{item.SE}}</TD>
+                    <TD class="c3">{{item.SW}}</TD>
+                </TR>
+                {% endfor %}
+                </table>
+            <b>WIND REPORT:</b> <a href={{wind_report_adam}}>{{wind_text}}</a><br>
+            <b>RAINFALL REPORT:</b> <a href={{rainfall_report_adam}}>{{rain_text}}</a><br>
+            <b>SUBHAZARDS:</b>Not available.<br>
+            </p>
+        <p>
+            <b>NOAA ADVISORY SUMMARY:</b> <a href={{summary_link_noaa}}>Latest NOAA Advisory Summary</a><br>
+        </p>
+            </div>
+</body>
+<footer>
+Report UUID: {{uuid}}<br>
+NOAA Report Datetime: {{report_date_noaa}}<br>
+ADAM Report Datetime: {{report_date_adam}}<br>
+AAAStorms Report Datetime: {{report_time}}<br>
+</footer>
+
+</html>

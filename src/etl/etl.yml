@@ -1,0 +1,11 @@
+# etl.yml
+
+etl:
+  description: "This function gets storm data and saves it to s3"
+  timeout: 310
+  memorySize: 725
+  environment: 
+    DEV_PROFILE: None
+  image:
+    name: etlImg
+  runtime: python3.8

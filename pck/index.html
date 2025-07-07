@@ -1,0 +1,103 @@
+<h1>T4DS-AAAStorms</h1>
+<h3>Anticipatory Action for the Americas (Storms)</h3>
+<br>
+<h2>Table of Contents:</h2>
+<br>
+<ul>
+  <li><a href="#Admin">Admin Data and Contact Information</a></li>
+  <li><a href="#Tags">AWS Tags</a></li>
+  <li><a href="#Background">Background</a></li>
+  <li><a href="#Data">Data Inventory Summary</a></li>
+  <li><a href="#Architecture">Architecture Diagrams</a></li>
+  <li><a href="#Deployment">Deployment</a></li>
+  <li><a href="#Troubleshooting">Troubleshooting</a></li>
+  <li><a href="#Resources">Resource Utilization Estimates</a></li>
+  <li><a href="#SummaryPD">Summary of Consultant Skills</a></li>
+</ul>
+<br>
+<h3 id="Admin">Admin Data and Contact Information</h3>
+<p>This project is a collaboration between T4D Data Science and Research and Learning (Guatemala)</p>
+<p>Contact information:</p>
+<p>For development related support and troubleshooting, please contact the T4DS Dev listed below. For information about the project, please contact Research and Learning.</p>
+<ul>
+  <li>T4DS Dev: Alicia Morrison, amorrison@mercycorps.org</li>
+  <li>T4DS Support: Aaron Eubank, aeubank@mercycorps.org</li>
+  <li>T4D Climate/Tech Advisor: Alexa Schmidt, aschmidt@mercycorps.org</li>
+  <li>R&amp;L: Ellen Reid, ereid@mercycorps.org</li>
+</ul>
+<h3 id="Tags">AWS Tags</h3>
+<p>AWS resources are tagged as:</p>
+<ol>
+  <li>project - aaastorms</li>
+  <li>region - americas</li>
+  <li>partner - research_and_learning</li>
+  <li>t4ds_dev - amorrison@mercycorps.org</li>
+  <li>partner_poc - ereid@mercycorps.org</li>
+</ol>
+<h3 id="Background">Background</h3>
+<p>The purpose of Anticipatory Action for the Americas – Tropical Storms (AAA Storms) is to develop a risk framework for the Americas region that supports early release of remittances for resiliency and recovery.  
+Mercy Corps, in partnership with Remitly and the Immigration Policy Lab at Stanford, is planning to scale up the forecast-based remittance service, as piloted under the Carnegie Climate Migration project in 2022. The forecast-based remittance service is a communication service that lets remittance senders know if a tropical storm is expected to hit an area where they regularly send money. Remittance senders in the United States receive an early warning notification through their mobile application, along with a financial incentive to send remittances to their contacts in Central America. The pilot of the forecast-based remittance service was completed in Huehuetenango, Guatemala during the 2022 hurricane season. With the scale-up, we will expand the service to more communities in Central America (including Guatemala, Honduras, El Salvador, and Nicaragua) during the 2023 hurricane season. The design and operationalization of the pilot was successful and can be improved based on the experience of Tropical Storm Lisa in November 2022 and recommendations from our team and partners.</p>
+
+<h3 id="Data">Data Inventory Summary</h3>
+<p>The primary data source for AAAStorms is <a href="https://www.nhc.noaa.gov/">NOAA National Hurricane Center</a> and the WFP ADAM Live platform. The NOAA data is accessed through the <a href="https://www.nhc.noaa.gov/aboutrss.shtml">NHC RSS GIS Feed</a>.</p>
+
+<h4>Data Flow Diagram</h4>
+<p>The dataflow diagram demonstrates how data flows through the system and provides an overview of what happens at each stage of the application ETL process.</p>
+<img src="dataflow_diagram1.jpg" alt="Data Flow Diagram" width="900" height="500">
+<h3 id="Architecture">Architecture</h3>
+<h4>Architecture Diagram</h4>
+<p>The architecture diagram shows the AWS tools and services used to link processes in the application.</p>
+<img src="architecture_diagram1.jpg" alt="Architecture Diagram" width="700" height="500">
+<h4>Orchestration</h4>
+<p>The AAAStorms application run on two separate loops, a 12 hour loop to check for storms in pretrigger status and a 6 hour loop to check for storms in trigger status. These loops invoke slightly different state machines in AWS Step Functions. The 12H loop collects all storm data that is in trigger OR pretrigger status. The 6H loop collects only storm data that is in trigger status. Once a storm leaves trigger or pretrigger status, it will no longer be reported.</p>
+<p>State Machine Definitions:</p>
+<ol>
+  <li><a href="stepfunction_12H.json">12H Loop</a></li>
+  <li><a href="stepfunction_6H.json">6H Loop</a></li>
+</ol>
+<h4>Functions</h4>
+<p>The AAAStorms application uses AWS Lambdas to run each stage of the ETL process.</p>
+<p>Functions:</p>
+<ol>
+  <li><a href="https://github.com/mercycorps/t4ds-aaastorms/tree/main/src/etl">etl</a> - calls the NOAA RSS GIS feed and parses the information; saves the raw information to the aaastorms-stormdata bucket</li>
+  <li><a href="https://github.com/mercycorps/t4ds-aaastorms/tree/main/src/etlTriggers">etlTriggers</a> - retrieves the storm data and creates a trigger data set based on the available information; saves the trigger data set to aaastorms-stormtriggers</li>
+  <li><a href="https://github.com/mercycorps/t4ds-aaastorms/tree/main/src/report">report</a> - retrieves the storm triggers and builds an HTML report using a Python jinja template; the report function uses Amazon SES to send a formatted report to each email in the <a href="https://github.com/mercycorps/t4ds-aaastorms/blob/main/src/report/config.py">config.py</a> file. The reports are saved to aaastorms-stormreports</li>
+</ol>
+<h3 id="Deployment">Deployment</h3>
+<p>The AAAStorms application is deployed using the serverless framework.<br>
+<a href="https://www.serverless.com/framework/docs/getting-started">You can learn how to use this open source CLI tool in conjunction with AWS here</a><br>
+The AAAStorms ETL and report is a single service. Each function is containerized using Docker and uses a function-level .yml file to support Lambda configuration.</p>
+
+<h3 id="Troubleshooting">Troubleshooting</h3>
+<p>What do I do if...<br>
+&emsp;<li>I need to update the email distribution list?</li>
+The email distribution list is updated in the <code>config.py</code> file found in the <a href="https://github.com/mercycorps/t4ds-aaastorms/tree/main/src/report"><code>report</code></a> module</li>
+&emsp;<li>I am getting too many reports? Or not enough?</li>
+Report frequency is controlled by the timing of the <a href="https://github.com/mercycorps/t4ds-aaastorms/tree/main/pck">Step Function State Machines</a>; 
+in order to change the report frequency, you can alter the <a href="https://us-east-1.console.aws.amazon.com/events/home?region=us-east-1#/rules">Event Bridge</a> triggers that initiate the State Machines.
+&emsp;<li>I don't like the format of the report?</li>
+The report format is established in the <a href="https://github.com/mercycorps/t4ds-aaastorms/tree/main/src/report/templates">Jinja template</a>; you can 
+update the html template to change the format. 
+Note that if you want to insert new variables into the report, you will need to update the <code>build_reports</code> function in the <a href="https://github.com/mercycorps/t4ds-aaastorms/blob/main/src/report/reporting.py"><code>report</code></a> module
+&emsp;<li>Want to turn the system off?</li>
+The system can be "turned off" by disabling the <a href="https://us-east-1.console.aws.amazon.com/events/home?region=us-east-1#/rules">Event Bridge</a> triggers that initiate the State Machines.
+</p>
+
+<h3 id="Resources">AWS Resource Utilization Estimates</h3>
+<p>
+<ol>
+  <li>AWS Lambda: $0.00 / month (free tier)</li>
+  <li>AWS Step Functions: $0.00 / month (free tier)</li>
+  <li>AWS S3: $0.00 (free tier for 12 months, thereafter priced at $0.023 per GB)</li>
+  <li>AWS S3 Static Web Hosting (for documentation page): $0.00 / month</li>
+  <li>AWS SES: $0.00 (free tier for 12 months, thereafter priced at $0.10/1000 emails)</li>
+  <li>Serverless Deployment: $0.00</li>
+  <li>GitHub Repository: Enterprise subscription through IT</li>
+</ol>
+</p>
+<h3 id="SummaryPD">Summary of Skills for Consultants</h3>
+<p>
+  In the event that T4DS is unable to support further development of this project, we have included
+  a summary of skills and qualifications that you may want to consider including on a consultant solicitation.<br>
+  <embed src="consultant_scope.txt" alt="Consultant Scome" width="900" height="500">
+</p>
