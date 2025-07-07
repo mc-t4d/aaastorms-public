@@ -6,6 +6,7 @@ etl:
   memorySize: 725
   environment: 
     DEV_PROFILE: None
-  image:
-    name: etlImg
-  runtime: python3.8
+  handler: etl_main.handler
+  runtime: python3.9
+  layers:
+    - !Ref DependenciesLambdaLayer
