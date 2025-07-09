@@ -7,5 +7,5 @@ etlTriggers:
   environment: 
     DEV_PROFILE: None
   image:
-    name: etlTriggersImg
+    name: etltriggersimg
   runtime: python3.8

@@ -5,6 +5,5 @@ report:
   timeout: 300
   memorySize: 725
   image:
-    name: reportImg
+    name: reportimg
   runtime: python3.8
-   

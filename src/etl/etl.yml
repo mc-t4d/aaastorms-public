@@ -7,5 +7,5 @@ etl:
   environment: 
     DEV_PROFILE: None
   image:
-    name: etlImg
+    name: etlimg
   runtime: python3.8

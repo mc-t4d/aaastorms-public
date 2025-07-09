@@ -1,0 +1,59 @@
+# Python cache files
+__pycache__/
+**/__pycache__/
+*/__pycache__/
+*/**/__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Test coverage
+.coverage
+htmlcov/
+.tox/
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+
+# Virtual Environment
+venv/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# AWS
+.aws-sam/
+.serverless/
+
+# Node (for Serverless Framework)
+node_modules/
+
+# Lambda layers
+layer/
+layer-*/
+.layer-zip/

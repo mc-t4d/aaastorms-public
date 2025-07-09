@@ -12,15 +12,15 @@ provider:
     BUILDX_NO_DEFAULT_ATTESTATIONS: 16
   ecr:
     images:
-      etlImg:
+      etlimg:
         path: ./src/etl
         platform: linux/amd64
         provenance: false
-      etlTriggersImg:
+      etltriggersimg:
         path: ./src/etlTriggers
         platform: linux/amd64
         provenance: false
-      reportImg:
+      reportimg:
         path: ./src/report
         platform: linux/amd64
         provenance: false
@@ -28,6 +28,19 @@ provider:
   iam:
     role:
       statements:
+        # ECR permissions for Lambda to pull container images
+        - Effect: 'Allow'
+          Action:
+            - 'ecr:GetDownloadUrlForLayer'
+            - 'ecr:BatchGetImage'
+            - 'ecr:BatchCheckLayerAvailability'
+          Resource: 
+            - 'arn:aws:ecr:${self:provider.region}:${aws:accountId}:repository/*'
+        - Effect: 'Allow'
+          Action:
+            - 'ecr:GetAuthorizationToken'
+          Resource: '*'
+        # S3 permissions
         - Effect: 'Allow'
           Action:
             - 's3:PutObject'
@@ -42,6 +55,7 @@ provider:
             - 'arn:aws:s3:::aaastorms-stormreports/*'
             - 'arn:aws:s3:::aaastorms-stormtriggers'
             - 'arn:aws:s3:::aaastorms-stormtriggers/*'
+        # SES permissions
         - Effect: 'Allow'
           Action:
           - 'ses:*'
@@ -53,3 +67,199 @@ functions:
   - ${file(./src/etlTriggers/etlTriggers.yml)}
   - ${file(./src/report/report.yml)}
 
+stepFunctions:
+  stateMachines:
+    aaastorms12H:
+      name: aaastorms-12H-${self:provider.stage}
+      definition:
+        Comment: "This state machine collects triggers and pretriggers every 12H"
+        StartAt: "InvokeStormSearch"
+        States:
+          InvokeStormSearch:
+            Type: Task
+            Resource: "arn:aws:states:::lambda:invoke"
+            Parameters:
+              FunctionName: "arn:aws:lambda:${self:provider.region}:${aws:accountId}:function:${self:service}-${self:provider.stage}-etl:$LATEST"
+              Payload.$: "$"
+            Retry:
+              - ErrorEquals:
+                  - Lambda.ServiceException
+                  - Lambda.AWSLambdaException
+                  - Lambda.SdkClientException
+                  - Lambda.TooManyRequestsException
+                IntervalSeconds: 2
+                MaxAttempts: 6
+                BackoffRate: 2
+            Next: "ChooseIfStorms"
+            OutputPath: "$.Payload"
+          ChooseIfStorms:
+            Type: Choice
+            Choices:
+              - Variable: "$"
+                IsNull: true
+                Next: "Success"
+            Default: "Map"
+          Success:
+            Type: Succeed
+            Comment: "Storm search ran correctly but no storms were detected."
+          Map:
+            Type: Map
+            ItemProcessor:
+              ProcessorConfig:
+                Mode: INLINE
+              StartAt: "InvokeTriggerAnalysis"
+              States:
+                InvokeTriggerAnalysis:
+                  Type: Task
+                  Resource: "arn:aws:states:::lambda:invoke"
+                  Parameters:
+                    Payload.$: "$"
+                    FunctionName: "arn:aws:lambda:${self:provider.region}:${aws:accountId}:function:${self:service}-${self:provider.stage}-etlTriggers:$LATEST"
+                  Retry:
+                    - ErrorEquals:
+                        - Lambda.ServiceException
+                        - Lambda.AWSLambdaException
+                        - Lambda.SdkClientException
+                        - Lambda.TooManyRequestsException
+                      IntervalSeconds: 2
+                      MaxAttempts: 6
+                      BackoffRate: 2
+                  Next: "InvokeReports"
+                  OutputPath: "$.Payload"
+                InvokeReports:
+                  Type: Task
+                  Resource: "arn:aws:states:::lambda:invoke"
+                  OutputPath: "$.Payload"
+                  Parameters:
+                    Payload.$: "$"
+                    FunctionName: "arn:aws:lambda:${self:provider.region}:${aws:accountId}:function:${self:service}-${self:provider.stage}-report:$LATEST"
+                  Retry:
+                    - ErrorEquals:
+                        - Lambda.ServiceException
+                        - Lambda.AWSLambdaException
+                        - Lambda.SdkClientException
+                        - Lambda.TooManyRequestsException
+                      IntervalSeconds: 2
+                      MaxAttempts: 6
+                      BackoffRate: 2
+                  End: true
+            End: true
+        TimeoutSeconds: 600
+    aaastorms6H:
+      name: aaastorms-6H-${self:provider.stage}
+      definition:
+        Comment: "This state machine collects triggers every 6H"
+        StartAt: "InvokeStormSearch"
+        States:
+          InvokeStormSearch:
+            Type: Task
+            Resource: "arn:aws:states:::lambda:invoke"
+            Parameters:
+              FunctionName: "arn:aws:lambda:${self:provider.region}:${aws:accountId}:function:${self:service}-${self:provider.stage}-etl:$LATEST"
+              Payload.$: "$"
+            Retry:
+              - ErrorEquals:
+                  - Lambda.ServiceException
+                  - Lambda.AWSLambdaException
+                  - Lambda.SdkClientException
+                  - Lambda.TooManyRequestsException
+                IntervalSeconds: 2
+                MaxAttempts: 6
+                BackoffRate: 2
+            Next: "ChooseIfStorms"
+            OutputPath: "$.Payload"
+          ChooseIfStorms:
+            Type: Choice
+            Choices:
+              - Variable: "$"
+                IsNull: true
+                Next: "SuccessNoStorms"
+            Default: "Map"
+            Comment: "Choose a path if there are storms returned by the storm search."
+          SuccessNoStorms:
+            Type: Succeed
+            Comment: "Storm search ran correctly but no storms were detected"
+          Map:
+            Type: Map
+            ItemProcessor:
+              ProcessorConfig:
+                Mode: INLINE
+              StartAt: "InvokeTriggerAnalysis"
+              States:
+                InvokeTriggerAnalysis:
+                  Type: Task
+                  Resource: "arn:aws:states:::lambda:invoke"
+                  Parameters:
+                    Payload.$: "$"
+                    FunctionName: "arn:aws:lambda:${self:provider.region}:${aws:accountId}:function:${self:service}-${self:provider.stage}-etlTriggers:$LATEST"
+                  Retry:
+                    - ErrorEquals:
+                        - Lambda.ServiceException
+                        - Lambda.AWSLambdaException
+                        - Lambda.SdkClientException
+                        - Lambda.TooManyRequestsException
+                      IntervalSeconds: 2
+                      MaxAttempts: 6
+                      BackoffRate: 2
+                  Next: "ReportChoice"
+                  OutputPath: "$.Payload"
+                ReportChoice:
+                  Type: Choice
+                  Choices:
+                    - Variable: "$.stormData.trigger_type"
+                      StringEquals: "trigger"
+                      Next: "InvokeReports"
+                    - Not:
+                        Variable: "$.stormData.trigger_type"
+                        StringEquals: "trigger"
+                      Next: "SuccessPreTriggers"
+                InvokeReports:
+                  Type: Task
+                  Resource: "arn:aws:states:::lambda:invoke"
+                  OutputPath: "$.Payload"
+                  Parameters:
+                    Payload.$: "$"
+                    FunctionName: "arn:aws:lambda:${self:provider.region}:${aws:accountId}:function:${self:service}-${self:provider.stage}-report:$LATEST"
+                  Retry:
+                    - ErrorEquals:
+                        - Lambda.ServiceException
+                        - Lambda.AWSLambdaException
+                        - Lambda.SdkClientException
+                        - Lambda.TooManyRequestsException
+                      IntervalSeconds: 2
+                      MaxAttempts: 6
+                      BackoffRate: 2
+                  End: true
+                SuccessPreTriggers:
+                  Type: Succeed
+                  Comment: "AAAStorms skips pretrigger report sends in 6H loop."
+            End: true
+        TimeoutSeconds: 600
+
+resources:
+  Resources:
+    StepFunctionRole:
+      Type: AWS::IAM::Role
+      Properties:
+        AssumeRolePolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service: states.amazonaws.com
+              Action: sts:AssumeRole
+        Policies:
+          - PolicyName: StepFunctionLambdaInvoke
+            PolicyDocument:
+              Version: '2012-10-17'
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - lambda:InvokeFunction
+                  Resource:
+                    - "arn:aws:lambda:${self:provider.region}:${aws:accountId}:function:${self:service}-${self:provider.stage}-etl:*"
+                    - "arn:aws:lambda:${self:provider.region}:${aws:accountId}:function:${self:service}-${self:provider.stage}-etlTriggers:*"
+                    - "arn:aws:lambda:${self:provider.region}:${aws:accountId}:function:${self:service}-${self:provider.stage}-report:*"
+
+plugins:
+  - serverless-step-functions

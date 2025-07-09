@@ -12,9 +12,13 @@ This work is licensed under a <a rel="license" href="https://creativecommons.org
   * [Data Flow Diagram](#data-flow-diagram)
 - [Architecture](#architecture)
   * [Architecture Diagram](#architecture-diagram)
+  * [Container Architecture](#container-architecture)
   * [Orchestration](#orchestration)
   * [Functions](#functions)
 - [Deployment](#deployment)
+  * [Prerequisites](#prerequisites)
+  * [Configuration](#configuration)
+  * [Deployment Steps](#deployment-steps)
 - [Troubleshooting](#troubleshooting)
 - [AWS Resource Utilization Estimates](#aws-resource-utilization-estimates)
 - [Summary of Skills for Consultants](#summary-of-skills-for-consultants)
@@ -55,47 +59,130 @@ The data flow diagram demonstrates how data flows through the system and provide
 The architecture diagram shows the AWS tools and services used to link processes in the application.
 ![Architecture Diagram](https://github.com/mercycorps/t4ds-aaastorms/blob/main/pck/architecture_diagram1.jpg)
 
+#### Container Architecture
+The AAAStorms application uses a **containerized serverless architecture** with the following components:
+
+**Containerized Lambda Functions:**
+- Each of the three main functions (ETL, ETL Triggers, Report) is packaged as a separate Docker container
+- Containers are built automatically by the Serverless Framework during deployment
+- Base image: `public.ecr.aws/lambda/python:3.9` (AWS Lambda Python runtime)
+- Each container includes function-specific Python dependencies and code
+
+**Container Build Process:**
+1. Serverless Framework reads Dockerfiles from each function directory (`src/etl/`, `src/etlTriggers/`, `src/report/`)
+2. Builds Docker images for `linux/amd64` platform
+3. Automatically pushes images to AWS ECR (Elastic Container Registry)
+4. Creates/updates Lambda functions to use the container images
+5. Configures proper IAM permissions for Lambda to access ECR
+
+**Benefits:**
+- **Isolation**: Each function has its own dependencies and runtime environment
+- **Scalability**: Lambda automatically scales containers based on demand
+- **Consistency**: Same runtime environment across development and production
+- **Cost-Effective**: Pay only for execution time, containers spin up on-demand
+
 #### Orchestration
-The AAAStorms application runs on two separate loops, a 12-hour loop to check for storms in pretrigger status and a 6-hour loop to check for storms in trigger status. These loops invoke slightly different state machines in AWS Step Functions. The 12H loop collects all storm data that is in trigger OR pretrigger status. The 6H loop collects only storm data that is in trigger status. Once a storm leaves trigger or pretrigger status, it will no longer be reported.
+The AAAStorms application runs on two separate loops, orchestrated by AWS Step Functions:
+
+- **12-hour loop**: Checks for storms in pretrigger OR trigger status
+- **6-hour loop**: Checks for storms in trigger status only
+
+These loops invoke state machines that coordinate the three Lambda functions in sequence. The Step Functions are automatically deployed as part of the serverless configuration and handle error retry logic and conditional branching based on storm data.
 
 State Machine Definitions:
-1. [12H Loop](stepfunction_12H.json)
-2. [6H Loop](stepfunction_6H.json)
+1. [12H Loop](pck/stepfunction_12H.json)
+2. [6H Loop](pck/stepfunction_6H.json)
 
 #### Functions
-The AAAStorms application uses AWS Lambdas to run each stage of the ETL process.
+The AAAStorms application uses containerized AWS Lambda functions to run each stage of the ETL process:
 
-Functions:
-1. [etl](https://github.com/mercycorps/t4ds-aaastorms/tree/main/src/etl) - calls the NOAA RSS GIS feed and parses the information; saves the raw information to the aaastorms-stormdata bucket
-2. [etlTriggers](https://github.com/mercycorps/t4ds-aaastorms/tree/main/src/etlTriggers) - retrieves the storm data and creates a trigger dataset based on the available information; saves the trigger dataset to aaastorms-stormtriggers
-3. [report](https://github.com/mercycorps/t4ds-aaastorms/tree/main/src/report) - retrieves the storm triggers and builds an HTML report using a Python jinja template; the report function uses Amazon SES to send a formatted report to each email in the [config.py](https://github.com/mercycorps/t4ds-aaastorms/blob/main/src/report/config.py) file. The reports are saved to aaastorms-stormreports
+1. **[etl](src/etl/)** - Calls the NOAA RSS GIS feed and parses storm information; saves raw data to the `aaastorms-stormdata` S3 bucket
+2. **[etlTriggers](src/etlTriggers/)** - Retrieves storm data and creates trigger datasets based on available information; saves trigger data to `aaastorms-stormtriggers` S3 bucket
+3. **[report](src/report/)** - Retrieves storm triggers and builds HTML reports using Python Jinja templates; sends formatted reports via Amazon SES to emails configured in [config.py](src/report/config.py); saves reports to `aaastorms-stormreports` S3 bucket
 
 ### Deployment
-The AAAStorms application is deployed using the serverless framework.
-[You can learn how to use this open-source CLI tool in conjunction with AWS here](https://www.serverless.com/framework/docs/getting-started).
-The AAAStorms ETL and report are a single service. Each function is containerized using Docker and uses a function-level .yml file to support Lambda configuration.
+
+#### Prerequisites
+Before deploying, ensure you have:
+
+1. **AWS CLI** configured with appropriate credentials
+2. **Serverless Framework** installed globally: `npm install -g serverless`
+3. **Docker** installed and running on your machine
+4. **Node.js and npm** for installing the serverless-step-functions plugin
+5. **AWS Account** with permissions for Lambda, ECR, S3, SES, Step Functions, and IAM
+
+#### Configuration
+
+**Important**: Before deployment, you must update the `serverless.yml` file with your specific configuration:
+
+1. **Update Organization**: Change the `org` field to your Serverless Framework organization:
+   ```yaml
+   org: your-serverless-org-name
+   ```
+
+2. **Automatic Account ID**: The configuration automatically uses `${aws:accountId}` to resolve your AWS account ID - no manual replacement needed.
+
+3. **Install Required Plugin**:
+   ```bash
+   npm install --save-dev serverless-step-functions
+   ```
+
+#### Deployment Steps
+
+**Critical**: The following environment variables are **required** for successful deployment due to Docker buildx compatibility issues:
+
+```bash
+# Set required environment variables (CRITICAL - deployment will fail without these)
+export DOCKER_BUILDKIT=1
+export DOCKER_CLI_EXPERIMENTAL=enabled
+export BUILDX_NO_DEFAULT_ATTESTATIONS=1
+
+# Deploy to development environment (default)
+serverless deploy
+
+# Or deploy to production
+serverless deploy --stage prod
+```
+
+**What happens during deployment:**
+1. Serverless Framework builds Docker containers for each function
+2. Images are pushed to your AWS ECR repositories (created automatically)
+3. Lambda functions are created/updated with container images
+4. Step Function state machines are deployed
+5. S3 buckets, IAM roles, and permissions are configured
+6. The complete storm monitoring system becomes operational
+
+**Deployment Output:**
+After successful deployment, you should see:
+- 3 Lambda functions (etl, etlTriggers, report)
+- 2 Step Function state machines (12H and 6H loops)
+- ECR repositories with your container images
+- S3 buckets for data storage
 
 ### Troubleshooting
-What do I do if...
-- I need to update the email distribution list?
-  The email distribution list is updated in the `config.py` file found in the [report](https://github.com/mercycorps/t4ds-aaastorms/tree/main/src/report) module.
-- I am getting too many reports? Or not enough?
-  Report frequency is controlled by the timing of the [Step Function State Machines](https://github.com/mercycorps/t4ds-aaastorms/tree/main/pck); in order to change the report frequency, you can alter the [Event Bridge](https://us-east-1.console.aws.amazon.com/events/home?region=us-east-1#/rules) triggers that initiate the State Machines.
-- I don't like the format of the report?
-  The report format is established in the [Jinja template](https://github.com/mercycorps/t4ds-aaastorms/tree/main/src/report/templates); you can update the HTML template to change the format. Note that if you want to insert new variables into the report, you will need to update the `build_reports` function in the [report](https://github.com/mercycorps/t4ds-aaastorms/blob/main/src/report/reporting.py) module.
-- Want to turn the system off?
-  The system can be "turned off" by disabling the [Event Bridge](https://us-east-1.console.aws.amazon.com/events/home?region=us-east-1#/rules) triggers that initiate the State Machines.
+
+#### Deployment Issues
+- **ECR Permissions Error**: Ensure the environment variables above are set before deployment
+- **Docker Build Failures**: Verify Docker is running and you have sufficient disk space
+- **Account ID Mismatch**: Confirm your AWS account ID is correctly configured in serverless.yml
+
+#### Operational Issues
+- **Update email distribution list**: Modify the `config.py` file in the [report](src/report/) module
+- **Change report frequency**: The frequency is controlled by EventBridge triggers that initiate the Step Function state machines
+- **Modify report format**: Update the [Jinja templates](src/report/templates/); for new variables, update the `build_reports` function in [reporting.py](src/report/reporting.py)
+- **Turn off the system**: Disable the EventBridge triggers in the AWS console
 
 ### AWS Resource Utilization Estimates
 
-- AWS Lambda: $0.00 / month (free tier)
-- AWS Step Functions: $0.00 / month (free tier)
-- AWS S3: $0.00 (free tier for 12 months, thereafter priced at $0.023 per GB)
-- AWS S3 Static Web Hosting (for documentation page): $0.00 / month
-- AWS SES: $0.00 (free tier for 12 months, thereafter priced at $0.10/1000 emails)
-- Serverless Deployment: $0.00
-- GitHub Repository: Enterprise subscription through IT
+- **AWS Lambda**: $0.00 / month (free tier)
+- **AWS Step Functions**: $0.00 / month (free tier)
+- **AWS ECR**: $0.00 (free tier for 12 months, thereafter $0.10/GB/month)
+- **AWS S3**: $0.00 (free tier for 12 months, thereafter $0.023/GB/month)
+- **AWS S3 Static Web Hosting** (for documentation): $0.00 / month
+- **AWS SES**: $0.00 (free tier for 12 months, thereafter $0.10/1000 emails)
+- **Serverless Framework**: $0.00 (open source)
+- **GitHub Repository**: Enterprise subscription through IT
 
 ### Summary of Skills for Consultants
 In the event that T4DS is unable to support further development of this project, we have included a summary of skills and qualifications that you may want to consider including on a consultant solicitation.
-[Consultant Scope](https://github.com/mercycorps/t4ds-aaastorms/blob/main/pck/consultant_scope.txt)
+[Consultant Scope](pck/consultant_scope.txt)
